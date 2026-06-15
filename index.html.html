@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>赫胥黎研究所 · 逆向知觉疗法</title>
+    <style>
+        /* ===== 全局重置 & 极简幽暗风格 ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #d0d0d0;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+            margin: 0;
+            overflow-x: hidden;
+            touch-action: manipulation;
+            position: relative;
+        }
+        /* 背景浮动面孔层 (SVG + CSS 绘制) */
+        #bg-face-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.03;
+            transition: opacity 1s ease;
+            will-change: transform;
+        }
+        #bg-face-layer svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            animation: breathe 8s infinite alternate ease-in-out;
+        }
+        @keyframes breathe {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.03) translate(2%, 1%); }
+        }
+        /* 污染升高后背景面孔更明显 */
+        .high-conta-bg #bg-face-layer { opacity: 0.15; }
+
+        /* ===== 主容器 ===== */
+        #app {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 16px 16px 20px;
+            display: flex;
+            flex-direction: column;
+            background: rgba(18, 18, 18, 0.85);
+            backdrop-filter: blur(2px);
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            transition: border-color 0.6s, box-shadow 0.6s;
+        }
+        /* 脉动红框 (污染 > 50%) */
+        .pulse-border #app {
+            border-left: 2px solid #8b0000;
+            border-right: 2px solid #8b0000;
+            box-shadow: 0 0 40px rgba(180, 20, 20, 0.3);
+            animation: borderPulse 2s infinite;
+        }
+        @keyframes borderPulse {
+            0%, 100% { border-color: #4a0000; box-shadow: 0 0 30px rgba(120, 0, 0, 0.2); }
+            50% { border-color: #ff3b3b; box-shadow: 0 0 60px rgba(255, 0, 0, 0.5); }
+        }
+
+        /* ===== 顶部：标题与污染进度 ===== */
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+        #header h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: #888;
+            text-transform: uppercase;
+        }
+        #progress-wrapper {
+            flex: 1;
+            margin-left: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        #progress-label {
+            font-size: 0.65rem;
+            color: #777;
+            letter-spacing: 1px;
+            margin-bottom: 2px;
+        }
+        #progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #2a2a2a;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 0 5px #000;
+        }
+        #progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4a7a9c, #3b6e8f);
+            border-radius: 20px;
+            transition: width 0.5s ease, background 0.8s ease;
+            box-shadow: 0 0 8px rgba(70, 130, 200, 0.5);
+        }
+        /* 高污染进度条变色 */
+        .contam-high #progress-bar-fill {
+            background: linear-gradient(90deg, #b55a3a, #b01010);
+            box-shadow: 0 0 15px #ff2222;
+        }
+        .contam-crit #progress-bar-fill {
+            background: linear-gradient(90deg, #8b0000, #ff0000);
+            animation: bloodPulse 0.8s infinite alternate;
+        }
+        @keyframes bloodPulse {
+            0% { opacity: 0.7; }
+            100% { opacity: 1; filter: drop-shadow(0 0 20px red); }
+        }
+
+        /* ===== 问题与图片区域 ===== */
+        #content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            margin-top: 12px;
+            gap: 10px;
+        }
+        #question-area {
+            min-height: 70px;
+        }
+        #question-text {
+            font-size: 1.2rem;
+            font-weight: 400;
+            color: #eaeaea;
+            line-height: 1.5;
+            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+            margin-bottom: 6px;
+        }
+        #question-counter {
+            font-size: 0.7rem;
+            color: #666;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        #image-container {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            margin: 8px 0;
+            flex-shrink: 0;
+            border: 1px solid #333;
+            transition: filter 0.8s, transform 0.2s;
+        }
+        #image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: opacity 0.5s ease, filter 0.6s, transform 0.6s ease;
+            opacity: 1;
+        }
+        /* 污染上升后图片滤镜加重 */
+        .contam-mid #image-container img {
+            filter: contrast(1.2) brightness(0.9) saturate(1.2) hue-rotate(5deg);
+        }
+        .contam-high #image-container img {
+            filter: contrast(1.4) brightness(0.8) saturate(1.5) hue-rotate(15deg) blur(0.5px);
+        }
+        .contam-crit #image-container img {
+            filter: contrast(1.6) brightness(0.7) saturate(1.8) hue-rotate(25deg) blur(0.8px);
+        }
+        /* 呼吸缩放 (污染 > 50%) */
+        .breathe-img #image-container img {
+            animation: imgBreathe 2.5s infinite alternate ease-in-out;
+        }
+        @keyframes imgBreathe {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.03); }
+        }
+
+        /* ===== 选项按钮 ===== */
+        #options-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+        .opt-btn {
+            background: #252525;
+            border: 1px solid #404040;
+            color: #ccc;
+            font-size: 1.05rem;
+            padding: 16px 14px;
+            border-radius: 12px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 0.2s, border 0.2s, transform 0.1s;
+            touch-action: manipulation;
+            user-select: none;
+            box-shadow: 0 4px 0 #0f0f0f;
+            width: 100%;
+            letter-spacing: 0.3px;
+            line-height: 1.3;
+        }
+        .opt-btn:active {
+            transform: scale(0.97);
+            background: #2f2f2f;
+            border-color: #666;
+        }
+        /* 震撼红闪 (点击时) */
+        .flash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #cc0000;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 999;
+            transition: opacity 0.05s;
+        }
+        .flash-active {
+            opacity: 0.25 !important;
+            transition: opacity 0s;
+        }
+
+        /* ===== 低语栏 ===== */
+        #whisper-area {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #2a2a2a;
+            min-height: 40px;
+            flex-shrink: 0;
+        }
+        #whisper-text {
+            font-size: 0.75rem;
+            color: #6a6a6a;
+            font-style: italic;
+            letter-spacing: 0.5px;
+            text-align: center;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        .whisper-dark {
+            color: #b55a5a !important;
+            opacity: 0.9 !important;
+        }
+
+        /* ===== 结局页面 ===== */
+        #outcome-screen {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            min-height: 70vh;
+            text-align: center;
+            padding: 20px 0;
+        }
+        #outcome-screen h2 {
+            font-size: 1.8rem;
+            color: #c0c0c0;
+            margin-bottom: 16px;
+        }
+        #outcome-screen p {
+            font-size: 1rem;
+            color: #aaa;
+            line-height: 1.6;
+            max-width: 90%;
+            margin: 0 auto 20px;
+        }
+        #outcome-screen .subtext {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: -10px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            padding: 12px;
+            background: #1a1a1a;
+            border-radius: 8px;
+        }
+        .outcome-btn {
+            background: #3a3a3a;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            padding: 18px 40px;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #111;
+            transition: 0.1s;
+            touch-action: manipulation;
+            margin-top: 10px;
+        }
+        .outcome-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #111;
+        }
+
+        /* 工具类 */
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <!-- 背景浮动面孔 SVG -->
+    <div id="bg-face-layer">
+        <svg viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <radialGradient id="faceGrad" cx="50%" cy="50%" r="50%">
+                    <stop offset="40%" stop-color="#333" stop-opacity="0.8" />
+                    <stop offset="100%" stop-color="#111" stop-opacity="0.0" />
+                </radialGradient>
+            </defs>
+            <!-- 巨大的眼睛轮廓 -->
+            <ellipse cx="380" cy="400" rx="100" ry="140" fill="none" stroke="#444" stroke-width="4" opacity="0.3" />
+            <ellipse cx="620" cy="400" rx="100" ry="140" fill="none" stroke="#444" stroke-width="4" opacity="0.3" />
+            <!-- 鼻孔 -->
+            <ellipse cx="450" cy="560" rx="25" ry="35" fill="none" stroke="#444" stroke-width="3" opacity="0.2" />
+            <ellipse cx="550" cy="560" rx="25" ry="35" fill="none" stroke="#444" stroke-width="3" opacity="0.2" />
+            <!-- 嘴巴 -->
+            <path d="M 400 660 Q 500 780 600 660" fill="none" stroke="#444" stroke-width="5" opacity="0.25" />
+            <!-- 另一层隐约的笑脸 -->
+            <ellipse cx="500" cy="400" rx="280" ry="320" fill="url(#faceGrad)" opacity="0.1" />
+        </svg>
+    </div>
+
+    <!-- 红闪覆盖层 -->
+    <div id="flash-overlay" class="flash-overlay"></div>
+
+    <!-- 主应用程序 -->
+    <div id="app">
+        <!-- 头部：标识+进度 -->
+        <div id="header">
+            <h1>赫胥黎研究所</h1>
+            <div id="progress-wrapper">
+                <span id="progress-label">神经可塑性指数</span>
+                <div id="progress-bar-bg"><div id="progress-bar-fill"></div></div>
+            </div>
+        </div>
+
+        <!-- 内容：问题，图片，选项，低语 -->
+        <div id="content">
+            <div id="question-area">
+                <div id="question-counter">阶段 1 / 16</div>
+                <div id="question-text">加载中...</div>
+            </div>
+
+            <div id="image-container">
+                <img id="stimulus-img" src="" alt="刺激图像">
+            </div>
+
+            <div id="options-area"></div>
+
+            <div id="whisper-area">
+                <div id="whisper-text">系统就绪 · 等待响应</div>
+            </div>
+        </div>
+
+        <!-- 结局屏幕 (初始隐藏) -->
+        <div id="outcome-screen">
+            <h2 id="outcome-title">实验终止</h2>
+            <p id="outcome-desc"></p>
+            <div id="outcome-sub" class="subtext"></div>
+            <button class="outcome-btn" id="retry-btn">再次实验</button>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================================
+        //  : "幻脸症" 与 "逆向知觉疗法" 的谎言
+        // ------------------------------------------------------------------------
+        //  1. 空想性错视 (Pareidolia) 是人类进化出的本能保护机制: 大脑优先在
+        //     混沌纹理中识别面孔，以便快速发现威胁。
+        //  2. 赫胥黎研究所宣称: "幻脸症" 患者过度活跃，无法抑制面部识别。
+        //  3. 所谓 "逆向知觉疗法" 声称通过渐进式视觉刺激，抑制该敏感度。
+        //  4. 真实目的: 通过16轮精细设计的问卷和视觉刺激，逐步提升受试者的
+        //     错视阈值。利用恐怖谷效应，将健康受试者“感染”为永久性幻脸症。
+        //  5. 随污染指数上升，视觉滤镜加重，背景面孔浮现，低语提示出现。
+        //  6. 结局不是治愈，而是感染分级。实验隐藏真相，直到最后一刻。
+        // ========================================================================
+
+        (function() {
+            'use strict';
+
+            // ==========================================================
+            //  16个问题 + 选项 + 污染值 + 图片URL
+            //  每张图片均为真实摄影，展示无生命纹理。
+            // ==========================================================
+            const imageUrls = [
+                // 2张 remit.ee 图片
+                "https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEViORqL8jPrMG8fGrUq2tCqWcfVoOOjgAC-CcAAjRrgVVOJXtwLeVdIDwE.png",
+                "https://img.remit.ee/api/file/BQACAgUAAyEGAASHRsPbAAEViOxqL8kEwYq2sKN4PqvZAaRGbw7zyQACASgAAjRrgVXLULhT3z2mMTwE.png",
+                // 9张 phototourl.com 图片
+                "https://cdn.phototourl.com/free/2026-06-15-3f6024ea-be51-4e05-8bea-0077279e1d2a.png",
+                "https://cdn.phototourl.com/free/2026-06-15-a983a6ad-e75a-4876-81c7-26dd0b7d7f62.png",
+                "https://cdn.phototourl.com/free/2026-06-15-93d4c053-069b-48ae-9932-774f61602a46.png",
+                "https://cdn.phototourl.com/free/2026-06-15-f93d78e8-30ce-412d-890b-58e31177d9d2.png",
+                "https://cdn.phototourl.com/free/2026-06-15-75a7530f-51ab-4f1d-80f4-e9ae949cf34a.png",
+                "https://cdn.phototourl.com/free/2026-06-15-c7a2b994-ce34-4bef-8c8c-25a1fdc64cd1.png",
+                "https://cdn.phototourl.com/free/2026-06-15-ae14b21c-ec7c-42ef-a8f3-adf48cb521fb.png",
+                "https://cdn.phototourl.com/free/2026-06-15-fcce6da0-5f54-4752-8d95-d4bc860a2305.png",
+                "https://cdn.phototourl.com/free/2026-06-15-7b5c8d4f-98ac-4fdc-a63a-3f1a3fc6f848.png",
+                // 5张 r2.image-upload.app 图片
+                "https://r2.image-upload.app/tyImg/5LceSVwH.png",
+                "https://r2.image-upload.app/tyImg/13g24op9V.png",
+                "https://r2.image-upload.app/tyImg/1ePe0UFaQ.png",
+                "https://r2.image-upload.app/tyImg/1dEHGFoDs.png",
+                "https://r2.image-upload.app/tyImg/16wrEl8QD.png"
+            ];
+
+            // 预加载图片避免闪烁
+            imageUrls.forEach(url => {
+                const img = new Image();
+                img.src = url;
+            });
+
+            const questions = [
+                { 
+                    q: "观察这幅纹理，你是否感觉到某种结构？", 
+                    opts: [
+                        { text: "是的，隐约有轮廓", val: 8 },
+                        { text: "不太确定，似乎有些乱", val: 5 },
+                        { text: "没有，只是随机纹理", val: 2 }
+                    ]
+                },
+                { 
+                    q: "你能否辨认出类似眼睛的区域？", 
+                    opts: [
+                        { text: "能，很清晰", val: 12 },
+                        { text: "隐隐约约可能有", val: 8 },
+                        { text: "完全看不到", val: 3 }
+                    ]
+                },
+                { 
+                    q: "如果有面孔，它是否包含嘴部的结构？", 
+                    opts: [
+                        { text: "有，像一张微张的嘴", val: 11 },
+                        { text: "有一些裂缝或阴影", val: 7 },
+                        { text: "没有嘴的结构", val: 2 }
+                    ]
+                },
+                { 
+                    q: "你觉得这张“脸”的情绪偏向什么？", 
+                    opts: [
+                        { text: "平静 / 冷漠", val: 6 },
+                        { text: "悲伤 / 忧虑", val: 12 },
+                        { text: "愤怒 / 恶意", val: 18 }
+                    ]
+                },
+                { 
+                    q: "它的视线是否朝向你？", 
+                    opts: [
+                        { text: "是的，它在看着我", val: 15 },
+                        { text: "不确定，可能是角度", val: 10 },
+                        { text: "没有，它看向别处", val: 4 }
+                    ]
+                },
+                { 
+                    q: "你能否在图片中看到一张完整的脸？", 
+                   	opts: [
+                        { text: "很清楚，完整五官", val: 16 },
+                        { text: "一半或残缺的脸", val: 11 },
+                        { text: "根本就不是脸", val: 3 }
+                    ]
+                },
+                { 
+                    q: "这张脸是否在发生变化，像在活动？", 
+                   	opts: [
+                        { text: "确实，它在微微蠕动", val: 18 },
+                        { text: "我感觉它在变化", val: 14 },
+                        { text: "它是静止的", val: 5 }
+                    ]
+                },
+                { 
+                    q: "你相信它只是一块无生命的纹理吗？", 
+                   	opts: [
+                        { text: "不，它太像真的了", val: 20 },
+                        { text: "理智告诉我它是死的", val: 11 },
+                        { text: "它百分之百是死的", val: 3 }
+                    ]
+                },
+                { 
+                    q: "你是否感觉它正在快速接近你？", 
+                   	opts: [
+                        { text: "有压迫感，像在靠近", val: 22 },
+                        { text: "有一点空间错觉", val: 14 },
+                        { text: "它并没有移动", val: 5 }
+                    ]
+                },
+                { 
+                    q: "如果盯着看10秒，它是否会眨眼？", 
+                   	opts: [
+                        { text: "我好像看到它眨动了", val: 25 },
+                        { text: "好像有瞬间的阴影变化", val: 16 },
+                        { text: "我确定它不会眨眼", val: 5 }
+                    ]
+                },
+                { 
+                    q: "你有没有觉得它开始模仿你的表情？", 
+                    opts: [
+                        { text: "是的，这让我很不舒服", val: 28 },
+                        { text: "似乎有微妙的同步", val: 18 },
+                        { text: "没有，完全不像", val: 6 }
+                    ]
+                },
+                { 
+                    q: "你身后的墙壁或窗帘上，是否有类似的脸？", 
+                    opts: [
+                        { text: "……有，我好像看到了", val: 30 },
+                        { text: "我有点担心去确认", val: 22 },
+                        { text: "什么也没有", val: 5 }
+                    ]
+                },
+                { 
+                    q: "试着环顾四周，是否感觉到被注视？", 
+                   	opts: [
+                        { text: "我感觉有什么东西在看我", val: 32 },
+                        { text: "脊背有点发凉", val: 20 },
+                        { text: "一切正常，没人看我", val: 6 }
+                    ]
+                },
+                { 
+                    q: "你觉得这场“治疗”有什么不对劲吗？", 
+                    opts: [
+                        { text: "是的，它在操纵我的认知", val: 35 },  // 觉醒关键
+                        { text: "有一点奇怪，但或许有效", val: 18 },
+                        { text: "一切正常，我相信研究所", val: 10 }
+                    ]
+                },
+                { 
+                    q: "你房间的角落，是否也有扭曲的脸？", 
+                   	opts: [
+                        { text: "我……不想转过头去", val: 35 },
+                        { text: "阴影的形状让我不安", val: 25 },
+                        { text: "没有，我房间很干净", val: 8 }
+                    ]
+                },
+                { 
+                    q: "最后一步——如果这种感受永远不会消失，你该怎么办？", 
+                   	opts: [
+                        { text: "我会崩溃，到处都是脸", val: 40 },  // 极端感染
+                        { text: "我会试着忽略，但很难", val: 25 },
+                        { text: "我会冷静，它只是幻觉", val: 10 }
+                    ]
+                }
+            ];
+
+            // 低语提示列表
+            const whisperMessages = [
+                "系统正在校准你的神经通路...",
+                "你能听到背景里的声音吗？",
+                "它刚才眨了一下眼睛。",
+                "不要回头看墙上的水渍。",
+                "研究所正在记录你的恐惧激素水平。",
+                "你的治疗其实是感染。",
+                "我一直在看着你，你感觉不到吗？",
+                "你在试着相信它是假的，对吗？",
+                "你身后的褶皱也在形成一张脸。",
+                "这一切只是开始，赫胥黎在等你崩溃。",
+                "你已经无法回到正常视觉了。",
+                "它还在你左边。"
+            ];
+
+            // 当前状态
+            let currentIndex = 0;
+            let contamination = 0;
+            let awakeningFlag = false; // 触发隐藏结局
+            let choicesHistory = [];  // 记录选项选择
+            let gameOver = false;
+
+            // DOM 元素
+            const progressFill = document.getElementById('progress-bar-fill');
+            const progressLabel = document.getElementById('progress-label');
+            const questionText = document.getElementById('question-text');
+            const questionCounter = document.getElementById('question-counter');
+            const stimImg = document.getElementById('stimulus-img');
+            const optionsArea = document.getElementById('options-area');
+            const whisperText = document.getElementById('whisper-text');
+            const appContainer = document.getElementById('app');
+            const flashOverlay = document.getElementById('flash-overlay');
+            const outcomeScreen = document.getElementById('outcome-screen');
+            const outcomeTitle = document.getElementById('outcome-title');
+            const outcomeDesc = document.getElementById('outcome-desc');
+            const outcomeSub = document.getElementById('outcome-sub');
+            const retryBtn = document.getElementById('retry-btn');
+            const contentArea = document.getElementById('content');
+
+            // 辅助：触发红闪 + 微震
+            function triggerFlash() {
+                flashOverlay.classList.add('flash-active');
+                setTimeout(() => flashOverlay.classList.remove('flash-active'), 150);
+                // 模拟微震
+                appContainer.style.transform = 'translateX(4px)';
+                setTimeout(() => appContainer.style.transform = 'translateX(-4px)', 50);
+                setTimeout(() => appContainer.style.transform = 'translateX(0)', 100);
+            }
+
+            // 更新UI污染样式
+            function updateContaminationUI() {
+                const percent = Math.min(100, contamination);
+                progressFill.style.width = percent + '%';
+                progressLabel.textContent = `神经可塑性指数 ${Math.round(percent)}%`;
+
+                appContainer.classList.remove('contam-high', 'contam-crit', 'pulse-border', 'breathe-img', 'high-conta-bg');
+
+                if (percent >= 80) {
+                    appContainer.classList.add('contam-crit', 'pulse-border', 'breathe-img', 'high-conta-bg');
+                } else if (percent >= 50) {
+                    appContainer.classList.add('contam-high', 'pulse-border', 'breathe-img');
+                } else if (percent >= 30) {
+                    appContainer.classList.add('contam-mid');
+                }
+            }
+
+            // 低语轮换
+            let whisperTimer = null;
+            function startWhisper() {
+                if (whisperTimer) clearInterval(whisperTimer);
+                whisperTimer = setInterval(() => {
+                    if (gameOver) return;
+                    let idx = Math.floor(Math.random() * whisperMessages.length);
+                    // 污染>60 解锁最后一条惊悚信息
+                    if (contamination < 60 && idx === whisperMessages.length - 1) {
+                        idx = Math.floor(Math.random() * (whisperMessages.length - 1));
+                    }
+                    whisperText.textContent = whisperMessages[idx];
+                    if (contamination > 40) {
+                        whisperText.classList.add('whisper-dark');
+                    } else {
+                        whisperText.classList.remove('whisper-dark');
+                    }
+                }, 6000);
+            }
+
+            // 渲染当前问题
+            function renderQuestion(index) {
+                if (index >= questions.length) {
+                    endGame();
+                    return;
+                }
+                const q = questions[index];
+                questionCounter.textContent = `阶段 ${index+1} / ${questions.length}`;
+                questionText.textContent = q.q;
+
+                // 图片淡入淡出效果
+                if (imageUrls[index]) {
+                    stimImg.style.opacity = 0;
+                    stimImg.src = imageUrls[index];
+                    stimImg.onload = () => { stimImg.style.opacity = 1; };
+                } else {
+                    stimImg.alt = '纹理图像 (请替换 URL)';
+                }
+
+                // 渲染选项按钮
+                optionsArea.innerHTML = '';
+                q.opts.forEach((opt, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'opt-btn';
+                    btn.textContent = opt.text;
+                    btn.dataset.value = opt.val;
+                    btn.dataset.optIdx = idx;
+                    btn.addEventListener('click', function() {
+                        handleOptionClick(btn);
+                    });
+                    optionsArea.appendChild(btn);
+                });
+
+                whisperText.textContent = '观察图像，然后做出选择...';
+                whisperText.classList.remove('whisper-dark');
+            }
+
+            // 处理选项点击
+            function handleOptionClick(btn) {
+                if (gameOver) return;
+                const val = parseInt(btn.dataset.value);
+                const optIdx = parseInt(btn.dataset.optIdx);
+                const qIdx = currentIndex;
+
+                contamination = Math.min(100, contamination + val);
+
+                // 记录觉醒倾向
+                if ((qIdx === 12 && optIdx === 0) || (qIdx === 14 && optIdx === 0)) {
+                    awakeningFlag = true;
+                }
+
+                updateContaminationUI();
+                triggerFlash();
+                choicesHistory.push(optIdx);
+
+                currentIndex++;
+                if (currentIndex < questions.length) {
+                    renderQuestion(currentIndex);
+                } else {
+                    endGame();
+                }
+            }
+
+            // 结局系统 (5种结局)
+            function endGame() {
+                gameOver = true;
+                if (whisperTimer) clearInterval(whisperTimer);
+
+                contentArea.style.display = 'none';
+                outcomeScreen.style.display = 'flex';
+
+                const finalScore = Math.min(100, contamination);
+                let outcomeKey = '';
+
+                // 觉醒结局优先
+                if (awakeningFlag && finalScore > 50) {
+                    outcomeKey = 'awakening';
+                } else if (finalScore >= 80) {
+                    outcomeKey = 'severe';
+                } else if (finalScore >= 60) {
+                    outcomeKey = 'moderate';
+                } else if (finalScore >= 40) {
+                    outcomeKey = 'mild';
+                } else {
+                    outcomeKey = 'resistant';
+                }
+
+                const outcomes = {
+                    'severe': {
+                        title: '重度感染 · 永久观察',
+                        desc: '赫胥黎研究所已确认：你的大脑已经永久重写了面孔识别阈值。你在余生中都会在无生命的纹理中看到追逐你的脸。我们已为你分配长期跟踪ID。#警告：它还在你左边。',
+                        sub: '📱 系统消息: "你无法再逃避了。它正在靠近。"'
+                    },
+                    'moderate': {
+                        title: '中度感染 · 短期后效',
+                        desc: '你的“治疗”成功达成了目标。未来72小时内，你将频繁在墙壁、窗帘、树皮上看到情绪化的面孔。它们将注视着你。研究所将在你走出大门后继续监控。',
+                        sub: '“不要试图揉眼睛，你会让它们更清晰。”'
+                    },
+                    'mild': {
+                        title: '轻度感染 · 残留恐惧',
+                        desc: '你暂时逃离了重度感染。但幻脸症的种子已经埋下。未来48小时内，某些纹理会让你的心突然抽紧——但你最终会学会假装它们不存在。你会记得这种恐惧。',
+                        sub: '你的身体记得那些脸。它们不会消失。'
+                    },
+                    'resistant': {
+                        title: '抵抗失败 · 否认即症状',
+                        desc: '你在整个过程中一直否认看到脸，但你没能说服你的潜意识。否认本身就是感染的症状。你的大脑在潜意识层面已经被激活。你在街上看到的每一块污渍都将变得危险。',
+                        sub: '研究表明，否认幻觉的人往往最容易被幻觉吞噬。'
+                    },
+                    'awakening': {
+                        title: '实验体觉醒 · 真相大白',
+                        desc: '你在最后阶段识破了研究所的阴谋。你看到了他们隐藏的代码：REVERSE_PAREIDOLIA_ACTIVATION。这是一场针对认知结构的武器化实验。你愤怒地提交了投诉，系统试图掩盖……',
+                        sub: '🔴实验体 #' + Math.floor(Math.random()*10000) + ' 已觉醒。请立即压制记忆删除协议。'
+                    }
+                };
+
+                const result = outcomes[outcomeKey];
+                outcomeTitle.textContent = result.title;
+                outcomeDesc.textContent = result.desc;
+                outcomeSub.textContent = result.sub;
+
+                retryBtn.addEventListener('click', function() {
+                    location.reload();
+                });
+            }
+
+            // 初始启动
+            function initGame() {
+                const openingMsg = 
+                    "欢迎来到赫胥黎研究所。\n\n" +
+                    "空想性错视 (Pareidolia) 是人类进化出的安全机制——在随机纹理中识别面孔，快速判断威胁。\n\n" +
+                    "但“幻脸症”让这一机制过度活跃，患者会在一切事物中看到焦虑、恶意的面孔。\n\n" +
+                    "我们开发的“逆向知觉疗法”旨在通过神经可塑性训练，抑制这种过度敏感。\n\n" +
+                    "接下来你将看到16幅纹理图片。请仔细辨认其中的“面孔”。随着实验推进，系统将逐步降低你的“神经可塑性指数”。\n\n" +
+                    "⚠️ 知情同意：我自愿参与此次认知干预，并允许研究所在实验过程中记录我的反应数据。";
+                
+                if (confirm(openingMsg + "\n\n(点击“确定”表示同意并开始实验)")) {
+                    contamination = 0;
+                    currentIndex = 0;
+                    awakeningFlag = false;
+                    choicesHistory = [];
+                    gameOver = false;
+
+                    outcomeScreen.style.display = 'none';
+                    contentArea.style.display = 'flex';
+
+                    updateContaminationUI();
+                    renderQuestion(0);
+                    startWhisper();
+                } else {
+                    alert("您已同意。该程序由赫胥黎研究所强制运行。");
+                    location.reload();
+                }
+            }
+
+            initGame();
+        })();
+    </script>
+</body>
+</html>
+
+
+
